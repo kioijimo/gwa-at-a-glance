@@ -6,6 +6,12 @@ An extension for computing and summarizing your GWAs for convenience and ease of
 
 I saw a post from a fellow BulSUan who created a whole-ass website just to compute GWAs. It seemed overkill for me and to top it off, it only allows manual input of grades. This extension removes the need to go to a random site and manually input your data so you can view your GWAs right in the school's portal!
 
+## Screenshots
+
+![](screenshot-1.png)
+
+![](screenshot-2.png)
+
 ## Installation
 
 > [!NOTE]
