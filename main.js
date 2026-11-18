@@ -6,17 +6,60 @@ const LATIN_HONOR_SUMMA_CUM_LAUDE_GWA_MINIMUM = 1.2;
 const GGA_GRADE_MINIMUM = 2.0;
 const LATIN_HONOR_GRADE_MINIMUM = 2.5;
 
+const EXCLUDED_COURSES = ["NSTP"];
+
 const sum = (arr) =>
   typeof Math.sumPrecise === "function"
     ? Math.sumPrecise(arr)
     : arr.reduce((a, b) => a + b, 0);
 const avg = (arr) => sum(arr) / arr.length;
-const isGGAEligible = (year, yearCount) => {
-  return (
-    yearCount > 1 &&
-    year.semesters.length === 2 &&
-    +avg(year.semesters.map((s) => s.gwa)).toFixed(2) <= DEAN_LISTER_GWA_MINIMUM
+const gwa = (arr) => {
+  let raw = avg(arr);
+  let rawSplit = String(raw).split(".");
+  raw = parseFloat(`${rawSplit[0]}.${rawSplit[1].substring(0, 3)}`);
+
+  return raw.toFixed(2); // Cuts off at the 3rd fp and then rounds off to 2 fp
+};
+
+const isPresidentLister = (gwa) => {
+  return gwa <= PRESIDENT_LISTER_GWA_MINIMUM;
+};
+
+const isGGA = (currentYear) => {
+  return currentYear.semesters.length === 2;
+};
+
+const isGGAEligible = (yearlyData) => {
+  return yearlyData.length >= 2;
+};
+
+const isLatinHonorEligible = (yearlyData) =>
+  yearlyData.length > 2 && // Second Year
+  all(yearlyData, "grade").every((grade) => grade <= LATIN_HONOR_GRADE_MINIMUM); // Every grade is above 2.5 (automatically checks if passed)
+
+const all = (yearlyData, key) =>
+  yearlyData.flatMap((yearData) =>
+    yearData.semesters.flatMap((semester) =>
+      semester.data.flatMap((data) => data[key]),
+    ),
   );
+
+const allGrades = (yearlyData) => all(yearlyData, "grade");
+const allUnits = (yearlyData) => all(yearlyData, "units");
+const allGradePoints = (yearlyData) =>
+  yearlyData.flatMap((yearData) =>
+    yearData.semesters.flatMap((semester) =>
+      semester.data.flatMap((data) => data.units * data.grade),
+    ),
+  );
+
+const totalUnits = (yearlyData) => sum(allUnits(yearlyData));
+const totalGradePoints = (yearlyData) => {
+  let raw = sum(allGradePoints(yearlyData)) / totalUnits(yearlyData);
+  let rawSplit = String(raw).split(".");
+  raw = parseFloat(`${rawSplit[0]}.${rawSplit[1].substring(0, 3)}`);
+
+  return raw.toFixed(2); // Cuts off at the 3rd fp and then rounds off to 2 fp
 };
 
 function displayCards(cardsBlock, info) {
@@ -86,10 +129,10 @@ function displayCards(cardsBlock, info) {
   }
   async function createLogo(insert) {
     const url = new URL("/bulsu-logo.svg", location.origin).href;
-    res = await fetch(url);
-    content = await res.text();
+    const res = await fetch(url);
+    const content = await res.text();
 
-    img = new DOMParser().parseFromString(
+    const img = new DOMParser().parseFromString(
       content,
       "image/svg+xml",
     ).documentElement;
@@ -99,107 +142,101 @@ function displayCards(cardsBlock, info) {
     insert(img);
   }
 
-  const ggaCard = cardsBlock.lastChild.cloneNode(true);
-  const latinCard = cardsBlock.lastChild.cloneNode(true);
-
   try {
+    const ggaCard = cardsBlock.lastChild.cloneNode(true);
+    const latinCard = cardsBlock.lastChild.cloneNode(true);
+
     ggaCard.className += " relative";
     latinCard.className += " relative";
 
-    ggaContent = ggaCard.querySelector('div[data-slot="card-content"]');
-    latinContent = latinCard.querySelector('div[data-slot="card-content"]');
+    const ggaContent = ggaCard.querySelector('div[data-slot="card-content"]');
+    const latinContent = latinCard.querySelector(
+      'div[data-slot="card-content"]',
+    );
 
     createLogo((svg) =>
       latinContent.insertBefore(svg, latinContent.firstChild),
     );
-
     createLogo((svg) => ggaContent.insertBefore(svg, ggaContent.firstChild));
-  } catch (err) {
-    console.log(err);
-  }
 
-  const latestYear = info.yearlyData[info.yearlyData.length - 1];
-  if (!latestYear) return;
-
-  const ggaCardInfo = ggaCard.lastChild.querySelector("div > div > div > div");
-  const ggaCardIcon = ggaCard.querySelector("svg");
-
-  const latinCardInfo = latinCard.lastChild.querySelector(
-    "div > div > div > div",
-  );
-  const latinCardIcon = latinCard.querySelector("svg");
-
-  ggaCardIcon.parentNode.replaceChild(createGgaCardIconSvg(), ggaCardIcon);
-  latinCardIcon.parentNode.replaceChild(
-    createLatinCardIconSvg(),
-    latinCardIcon,
-  );
-
-  const latestGwa = avg(
-    latestYear.semesters.map((semester) => semester.gwa),
-  ).toFixed(2);
-
-  ggaCard.className += " bg-primary text-white";
-  latinCard.className += " bg-primary text-white";
-
-  ggaCardInfo.children[0].textContent = "Gold Gear Award";
-  ggaCardInfo.children[0].className += " text-white";
-  ggaCardInfo.children[2].className += " text-white";
-
-  ggaCardInfo.children[1].textContent = latestGwa;
-  if (latestYear.semesters.length > 1) {
-    ggaCardInfo.children[0].textContent =
-      ggaCardInfo.children[0].textContent + " | Yearly GWA";
-    ggaCardInfo.children[2].textContent = latestYear.lister
-      ? `Running for ${latestYear.lister}`
-      : "Not eligible for an award";
-  } else {
-    ggaCardInfo.children[0].textContent =
-      ggaCardInfo.children[0].textContent + " | Semestral GWA";
-    ggaCardInfo.children[2].textContent = "No awards happening yet";
-  }
-
-  const runningGwa = avg(getRunningGrades(info));
-
-  latinCardInfo.children[0].textContent = "Latin Honors | Total GWA";
-  latinCardInfo.children[1].textContent = runningGwa.toFixed(2);
-
-  latinCardInfo.children[0].className += " text-white";
-  latinCardInfo.children[2].className += " text-white";
-
-  latinCardInfo.children[2].textContent =
-    info.latin === null
-      ? "Not eligible for a Latin Honor"
-      : `Running for ${info.latin}`;
-
-  for (i = 1; i <= 2; i++) {
-    cardsBlock.insertBefore(
-      document.createElement("div"),
-      cardsBlock.firstChild,
+    const ggaCardInfo = ggaCard.lastChild.querySelector(
+      "div > div > div > div",
     );
-  }
+    const ggaCardIcon = ggaCard.querySelector("svg");
 
-  cardsBlock.insertBefore(latinCard, cardsBlock.firstChild);
-  cardsBlock.insertBefore(ggaCard, cardsBlock.firstChild);
+    const latinCardInfo = latinCard.lastChild.querySelector(
+      "div > div > div > div",
+    );
+    const latinCardIcon = latinCard.querySelector("svg");
+
+    ggaCardIcon.parentNode.replaceChild(createGgaCardIconSvg(), ggaCardIcon);
+    latinCardIcon.parentNode.replaceChild(
+      createLatinCardIconSvg(),
+      latinCardIcon,
+    );
+
+    ggaCard.className += " bg-primary text-white";
+    latinCard.className += " bg-primary text-white";
+
+    ggaCardInfo.children[0].textContent = "Gold Gear Award";
+    ggaCardInfo.children[0].className += " text-white";
+    ggaCardInfo.children[2].className += " text-white";
+
+    const yearIndex = info.yearlyData.length - 1;
+    const yearData = info.yearlyData[yearIndex];
+
+    ggaCardInfo.children[1].textContent = gwa(allGrades([yearData]));
+    if (isGGA(yearData)) {
+      ggaCardInfo.children[0].textContent =
+        ggaCardInfo.children[0].textContent + " | Yearly GWA";
+      ggaCardInfo.children[2].textContent = yearData.award
+        ? `Running for ${yearData.award}`
+        : "Not eligible for an award";
+    } else {
+      ggaCardInfo.children[0].textContent =
+        ggaCardInfo.children[0].textContent + " | Semestral GWA";
+      ggaCardInfo.children[2].textContent = "No Gold Gear Awards yet";
+    }
+
+    latinCardInfo.children[0].textContent = "Latin Honors | Total GWA";
+    latinCardInfo.children[1].textContent = totalGradePoints(info.yearlyData);
+
+    latinCardInfo.children[0].className += " text-white";
+    latinCardInfo.children[2].className += " text-white";
+
+    latinCardInfo.children[2].textContent = info.honor
+      ? `Running for ${info.honor}`
+      : "Not eligible for a Latin Honor";
+
+    // Spacer columns
+    for (let i = 1; i <= 2; i++) {
+      cardsBlock.insertBefore(
+        document.createElement("div"),
+        cardsBlock.firstChild,
+      );
+    }
+
+    cardsBlock.insertBefore(ggaCard, cardsBlock.firstChild);
+    cardsBlock.insertBefore(latinCard, cardsBlock.firstChild);
+  } catch (e) {
+    console.error(e);
+  }
 }
 
 function fixFirstCard(cardsBlock) {
-  try {
-    const card = cardsBlock.firstChild;
+  const card = cardsBlock.firstChild;
 
-    card.className = card.className
-      .replace("bg-primary", "")
-      .replace("text-white", "");
-    lastChild = card.querySelector("div > div > p:last-child");
-    lastChild.textContent = "Subjects taken so far";
-    img = card.querySelector("img");
-    img.parentNode.removeChild(img);
-  } catch (err) {
-    console.log(err);
-  }
+  card.className = card.className
+    .replace("bg-primary", "")
+    .replace("text-white", "");
+  const lastChild = card.querySelector("div > div > p:last-child");
+  lastChild.textContent = "Subjects taken so far";
+  const img = card.querySelector("img");
+  img.parentNode.removeChild(img);
 }
 
-function displaySemestralGWAToCardSummary(semesterBlock, gwa) {
+function displaySemestralGWA(semesterBlock, semester) {
+  const { rawGwa, filteredGwa } = semester;
   const summaryCard = semesterBlock.querySelector(
     'div[data-slot="card-content"]',
   );
@@ -207,51 +244,57 @@ function displaySemestralGWAToCardSummary(semesterBlock, gwa) {
     "div:last-child > div:last-child > div:last-child",
   );
 
-  const gwaMetric =
-    metricsPanel.children[metricsPanel.children.length - 1].cloneNode(true);
-  gwaMetric.className += ` col-span-2 ${gwaMetric.className.replace("border/70", "primary")}`;
+  let idx = 0;
+  [rawGwa, filteredGwa].forEach((metric) => {
+    const metricCard =
+      metricsPanel.children[metricsPanel.children.length - 1].cloneNode(true);
+    metricCard.className += ` ${metricCard.className.replace("border/70", "primary")}`;
 
-  gwaMetric.querySelector("div").querySelector("p:first-child").textContent =
-    "Computed GWA";
-  gwaMetric.querySelector("div").querySelector("p:last-child").textContent =
-    gwa.toFixed(2);
-  gwaMetric.querySelector("div").querySelector("p:last-child").className +=
-    " text-primary";
+    metricCard.querySelector("div").querySelector("p:first-child").textContent =
+      `${idx < 1 ? "Raw" : "Honor"} GWA`;
+    metricCard.querySelector("div").querySelector("p:last-child").textContent =
+      metric;
+    metricCard.querySelector("div").querySelector("p:last-child").className +=
+      " text-primary";
 
-  metricsPanel.appendChild(gwaMetric);
+    metricsPanel.appendChild(metricCard);
+    idx++;
+  });
 }
 
-function getSemesterBlockWeightedGrades(semesterBlock) {
+function getSemesterBlockData(semesterBlock) {
   const table = semesterBlock.querySelector("table");
   const headers = Array.from(table.querySelectorAll("thead th"));
+  const subjectColIdx =
+    headers.findIndex((h) => h.textContent.trim() === "Subject") + 1;
   const gradeColIdx =
     headers.findIndex((h) => h.textContent.trim() === "Grade") + 1;
+  const unitColIdx = gradeColIdx - 1;
 
-  if (gradeColIdx === 0) {
-    console.log(
-      "Unable to find grade column. Returning a blank list of weighted grades...",
-    );
-    return [];
+  if (gradeColIdx === -1 || subjectColIdx === -1 || unitColIdx === 1) {
+    console.log("Unable to find necessary columns. Returning blank data...");
+    return {};
   }
 
   return Array.from(table.querySelectorAll("tbody tr"))
-    .map((row) =>
-      parseFloat(
-        row
-          .querySelector(`td:nth-child(${gradeColIdx})`)
+    .map((row) => {
+      return {
+        sub: row
+          .querySelector(`td:nth-child(${subjectColIdx}) > div > p:first-child`)
           .textContent.trim()
-          .split(" ")[0], // Grade cell may contain remarks like INC and such
-      ),
-    )
-    .filter((g) => !Number.isNaN(g));
-}
-
-function getRunningGrades(info) {
-  const allGrades = info.yearlyData.flatMap((yearData) =>
-    yearData.semesters.flatMap((semester) => semester.weightedGrades),
-  );
-
-  return allGrades;
+          .split(" ")[0],
+        units: +row
+          .querySelector(`td:nth-child(${unitColIdx})`)
+          .textContent.trim(),
+        grade: parseFloat(
+          row
+            .querySelector(`td:nth-child(${gradeColIdx})`)
+            .textContent.trim()
+            .split(" ")[0], // Grade cell may contain remarks like INC and such
+        ),
+      };
+    })
+    .filter((data) => !Number.isNaN(data.grade));
 }
 
 function waitForElement(selector, timeout = 10000) {
@@ -276,91 +319,89 @@ function waitForElement(selector, timeout = 10000) {
   });
 }
 
-function glance(cardsBlock, semestersBlock, semesterBlockSelector) {
+function glance(info, cardsBlock, semestersBlock, semesterBlockSelector) {
   const isSemesterBlockLocked = (semesterBlock) =>
     semesterBlock.querySelector('div[aria-hidden="true"]') != null;
 
-  const info = {
-    latin: "Cum Laude",
-    yearlyData: [],
-  };
-
-  const disqualifiedYearsForGGA = new Set();
   let semesterCount = 0;
 
-  blocks = Array.from(
+  const blocks = Array.from(
     semestersBlock.querySelectorAll(semesterBlockSelector),
-  ).reverse();
-
-  console.log("Retrived semesters' blocks");
+  ).toReversed();
 
   blocks.forEach((semesterBlock) => {
+    console.log(`Scraping semester ${semesterCount + 1}`);
+
     if (isSemesterBlockLocked(semesterBlock)) {
       console.log("Semester grades are locked. Skipping...");
       return;
     }
 
-    console.log(`Processing semester ${semesterCount + 1}!`);
+    const dataSet = getSemesterBlockData(semesterBlock);
 
-    if (semesterCount % 2 === 0) {
-      // Means that it has been a full year
-
-      const runningGwa = avg(getRunningGrades(info));
-
-      info.latin =
-        runningGwa <= LATIN_HONOR_SUMMA_CUM_LAUDE_GWA_MINIMUM
-          ? "Summa Cum Laude"
-          : runningGwa <= LATIN_HONOR_MAGNA_CUM_LAUDE_GWA_MINIMUM
-            ? "Magna Cum Laude"
-            : "Cum Laude";
-
-      info.yearlyData.push({ lister: null, semesters: [] });
-    }
-
-    weightedGrades = getSemesterBlockWeightedGrades(semesterBlock);
-
-    if (!weightedGrades.length) {
-      console.log("No grades were retrieved. Skipping...");
+    if (!dataSet.length) {
+      console.log("No data for semester were retrieved. Skipping...");
       return;
     }
 
-    console.log("Retrieved computed weighted grades!");
+    if (semesterCount % 2 == 0) {
+      try {
+        if (!isLatinHonorEligible(info.yearlyData)) {
+          info.honor = null;
+        } else {
+          let runningGwa = parseFloat(totalGradePoints(info.yearlyData));
+          info.honor =
+            (runningGwa <= LATIN_HONOR_SUMMA_CUM_LAUDE_GWA_MINIMUM
+              ? "Summa "
+              : runningGwa <= LATIN_HONOR_MAGNA_CUM_LAUDE_GWA_MINIMUM
+                ? "Magna "
+                : "") + "Cum Laude";
+        }
+      } catch (e) {
+        console.trace(e);
+      }
 
-    const gwa = avg(weightedGrades);
+      info.yearlyData.push({ award: null, semesters: [] });
+    }
 
-    const yearIdx = info.yearlyData.length - 1;
-    const yearData = info.yearlyData[yearIdx];
+    const yearIndex = info.yearlyData.length - 1;
+    const yearData = info.yearlyData[yearIndex];
 
-    weightedGrades.forEach((weightedGrade) => {
-      if (weightedGrade > LATIN_HONOR_GRADE_MINIMUM) info.latin = null;
-      if (weightedGrade > GGA_GRADE_MINIMUM)
-        disqualifiedYearsForGGA.add(yearIdx);
-    });
+    const semester = {
+      data: dataSet,
+      rawGwa: gwa(dataSet.map((data) => data.grade)),
+      filteredGwa: gwa(
+        dataSet.map((data) =>
+          !EXCLUDED_COURSES.includes(data.sub) ? data.grade : 0,
+        ),
+      ),
+    };
 
-    yearData.semesters.push({ weightedGrades, gwa });
+    yearData.semesters.push(semester);
 
-    console.log(`Registered semester!`);
-
-    const yearGwa = +avg(
-      yearData.semesters.map((semester) => semester.gwa),
-    ).toFixed(2);
-
-    yearData.lister =
-      !disqualifiedYearsForGGA.has(yearIdx) &&
-      isGGAEligible(yearData, info.yearlyData.length)
-        ? yearGwa <= PRESIDENT_LISTER_GWA_MINIMUM
+    try {
+      yearData.award = isGGAEligible(info)
+        ? isPresidentLister(
+            +gwa(allGrades([info.yearlyData[yearIndex - 1], yearData])),
+          )
           ? "President's Lister"
           : "Dean's Lister"
         : null;
-
-    console.log(`Updated semester details for lister!`);
+    } catch (e) {
+      console.trace(e);
+    }
 
     semesterCount++;
-    displaySemestralGWAToCardSummary(semesterBlock, gwa);
+    displaySemestralGWA(semesterBlock, semester);
   });
 
   fixFirstCard(cardsBlock);
-  displayCards(cardsBlock, info);
+
+  try {
+    displayCards(cardsBlock, info);
+  } catch (e) {
+    console.error(e);
+  }
 }
 
 browser.runtime.onMessage.addListener(async (data) => {
@@ -379,5 +420,10 @@ browser.runtime.onMessage.addListener(async (data) => {
 
   console.log("All checks passed!");
 
-  glance(cardsBlock, semestersBlock, semesterBlockSelector);
+  glance(info, cardsBlock, semestersBlock, semesterBlockSelector);
 });
+
+const info = {
+  honor: null,
+  yearlyData: [],
+};
