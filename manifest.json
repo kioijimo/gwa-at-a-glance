@@ -1,0 +1,27 @@
+{
+  "manifest_version": 3,
+  "name": "GWA at a Glance",
+  "description": "View your GWAs at a glance!",
+  "version": "1.0",
+  "icons": {
+    "16": "logo.png",
+    "32": "logo.png",
+    "48": "logo.png",
+    "128": "logo.png"
+  },
+  "permissions": ["tabs"],
+  "host_permissions": ["https://alabsms.bulsu.edu.ph/grades*"],
+  "background": {
+    "service_worker": "background.js",
+    "scripts": ["background.js"]
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://alabsms.bulsu.edu.ph/grades*"],
+      "js": ["main.js"]
+    }
+  ],
+  "browser_specific_settings": {
+    "gecko": { "id": "gwaglance@mozilla.com" }
+  }
+}
