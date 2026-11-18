@@ -8,8 +8,14 @@ I saw a post from a fellow BulSUan who created a whole-ass website just to compu
 
 ## Installation
 
-For firefox users, right click and Save as [here](https://github.com/kioijimo/gwa-at-a-glance/releases/latest/firefox-release.zip).
+> [!NOTE]
+>
+> Firefox has not verified the extension yet so you won't be able to install the extension for the time being
 
-For chrome users, right click and Save as [here](https://github.com/kioijimo/gwa-at-a-glance/releases/latest/chrome-release.crx).
+1. Download the extension file
 
-Alternatively, browse the Releases section and download and install the respective extension package for your browser.
+Right click and `Save link as` the hyperlinks. [Firefox](https://github.com/kioijimo/gwa-at-a-glance/releases/latest/firefox-release.zip) | [Chrome](https://github.com/kioijimo/gwa-at-a-glance/releases/latest/chrome-release.crx). Alternatively, browse the Releases section and go to the latest release and download the respective extension package for your browser.
+
+2. Install extension to your browser
+
+Drag and drop the downloaded extension to your browser (or the extensions page of your browser) and enjoy!
