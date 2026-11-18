@@ -14,7 +14,7 @@ I saw a post from a fellow BulSUan who created a whole-ass website just to compu
 
 1. Download the extension file
 
-Right click and `Save link as` the hyperlinks. [Firefox](https://github.com/kioijimo/gwa-at-a-glance/releases/latest/firefox-release.xpi) | [Chrome](https://github.com/kioijimo/gwa-at-a-glance/releases/latest/chrome-release.crx). Alternatively, browse the Releases section and go to the latest release and download the respective extension package for your browser.
+Browse the Releases section and go to the latest release and download the respective extension package for your browser.
 
 2. Install extension to your browser
 
