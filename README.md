@@ -8,8 +8,8 @@ I saw a post from a fellow BulSUan who created a whole-ass website just to compu
 
 ## Installation
 
-For firefox users, click [here](https://github.com/kioijimo/gwa-at-a-glace/releases/latest/firefox-release.zip).
+For firefox users, click [here](https://github.com/kioijimo/gwa-at-a-glace/releases/tags/v1.0/firefox-release.zip).
 
-For chrome users, click [here](https://github.com/kioijimo/gwa-at-a-glace/releases/latest/chrome-release.crx).
+For chrome users, click [here](https://github.com/kioijimo/gwa-at-a-glace/releases/tags/v1.0/chrome-release.crx).
 
 Alternatively, browse the Releases section and download and install the respective extension package for your browser.
