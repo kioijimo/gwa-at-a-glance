@@ -6,6 +6,10 @@ An extension for computing and summarizing your GWAs for convenience and ease of
 
 I saw a post from a fellow BulSUan who created a whole-ass website just to compute GWAs. It seemed overkill for me and to top it off, it only allows manual input of grades. This extension removes the need to go to a random site and manually input your data so you can view your GWAs right in the school's portal!
 
+## How it works
+
+The extension only extracts data from the text **available** in the page and perform necessary computations with it! No data being sent anywhere, all temporary. This does also mean that it is entirely dependent on the reliability and integrity of the system's data from the backend. Right now, some courses are missing (PE for the 1st year 1st semester) so it produces off results.
+
 ## Screenshots
 
 ![](screenshot-1.png)
