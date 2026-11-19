@@ -1,303 +1,262 @@
 const PRESIDENT_LISTER_GWA_MINIMUM = 1.21;
 const DEAN_LISTER_GWA_MINIMUM = 1.75;
-const LATIN_HONOR_CUM_LAUDE_GWA_MINIMUM = 1.75;
-const LATIN_HONOR_MAGNA_CUM_LAUDE_GWA_MINIMUM = 1.45;
-const LATIN_HONOR_SUMMA_CUM_LAUDE_GWA_MINIMUM = 1.2;
 const GGA_GRADE_MINIMUM = 2.0;
+
+const CUM_LAUDE_GWA_MINIMUM = 1.75;
+const MAGNA_CUM_LAUDE_GWA_MINIMUM = 1.45;
+const SUMMA_CUM_LAUDE_GWA_MINIMUM = 1.2;
 const LATIN_HONOR_GRADE_MINIMUM = 2.5;
 
 const EXCLUDED_COURSES = ["NSTP"];
 
-const sum = (arr) =>
-  typeof Math.sumPrecise === "function"
-    ? Math.sumPrecise(arr)
-    : arr.reduce((a, b) => a + b, 0);
-const avg = (arr) => sum(arr) / arr.length;
-const gwa = (arr) => {
-  let raw = avg(arr);
-  let rawSplit = String(raw).split(".");
-  raw = parseFloat(`${rawSplit[0]}.${rawSplit[1].substring(0, 3)}`);
+browser.runtime.onMessage.addListener(async () => {
+  await main();
+});
 
-  return raw.toFixed(2); // Cuts off at the 3rd fp and then rounds off to 2 fp
-};
+async function main() {
+  const isSemesterBlockLocked = (block) =>
+    block.querySelector('div[aria-hidden="true"]') != null;
 
-const isPresidentLister = (gwa) => {
-  return gwa <= PRESIDENT_LISTER_GWA_MINIMUM;
-};
+  const parentSelector = "#app main > div";
+  const cardsBlockSelector = `${parentSelector} header ~ div > div:first-child`;
+  const semesterBlockSelector = 'section[aria-label$="Semester"]';
+  const semestersBlockSelector = `${parentSelector} div > div:has(> ${semesterBlockSelector})`;
+  const gradesBlockSelector = `${parentSelector} header ~ div > div:last-child`;
+  const alertCardSelector = `${cardsBlockSelector} ~ div[role="alert"]`;
 
-const isGGA = (currentYear) => {
-  return currentYear.semesters.length === 2;
-};
+  const semestersBlock = await waitForElement(semestersBlockSelector);
+  const cardsBlock = await waitForElement(cardsBlockSelector);
+  const gradesBlock = await waitForElement(gradesBlockSelector);
+  const alertCard = await waitForElement(alertCardSelector);
 
-const isGGAEligible = (yearlyData) => {
-  return yearlyData.length >= 2;
-};
-
-const isLatinHonorEligible = (yearlyData) =>
-  yearlyData.length > 2 && // Second Year
-  all(yearlyData, "grade").every((grade) => grade <= LATIN_HONOR_GRADE_MINIMUM); // Every grade is above 2.5 (automatically checks if passed)
-
-const all = (yearlyData, key) =>
-  yearlyData.flatMap((yearData) =>
-    yearData.semesters.flatMap((semester) =>
-      semester.data.flatMap((data) => data[key]),
-    ),
-  );
-
-const allGrades = (yearlyData) => all(yearlyData, "grade");
-const allUnits = (yearlyData) => all(yearlyData, "units");
-const allGradePoints = (yearlyData) =>
-  yearlyData.flatMap((yearData) =>
-    yearData.semesters.flatMap((semester) =>
-      semester.data.flatMap((data) => data.units * data.grade),
-    ),
-  );
-
-const totalUnits = (yearlyData) => sum(allUnits(yearlyData));
-const totalGradePoints = (yearlyData) => {
-  let raw = sum(allGradePoints(yearlyData)) / totalUnits(yearlyData);
-  let rawSplit = String(raw).split(".");
-  raw = parseFloat(`${rawSplit[0]}.${rawSplit[1].substring(0, 3)}`);
-
-  return raw.toFixed(2); // Cuts off at the 3rd fp and then rounds off to 2 fp
-};
-
-function displayCards(cardsBlock, info) {
-  function createGgaCardIconSvg() {
-    const ns = "http://www.w3.org/2000/svg";
-    const svg = document.createElementNS(ns, "svg");
-    const attrs = {
-      viewBox: "0 0 24 24",
-      "stroke-width": "2",
-      width: "24",
-      height: "24",
-      fill: "none",
-      stroke: "currentColor",
-      "stroke-linejoin": "round",
-      "stroke-linecap": "round",
-      "aria-hidden": "true",
-      class: "lucide lucide-award text-white mt-1 size-6 shrink-0",
-    };
-    for (const [k, v] of Object.entries(attrs)) svg.setAttribute(k, v);
-
-    const circle = document.createElementNS(ns, "circle");
-    circle.setAttribute("cx", "12");
-    circle.setAttribute("cy", "8");
-    circle.setAttribute("r", "6");
-
-    const path = document.createElementNS(ns, "path");
-    path.setAttribute(
-      "d",
-      "m15.477 12.89 1.515 8.526a.5.5 0 0 1-.81.47l-3.58-2.687a1 1 0 0 0-1.197 0l-3.586 2.686a.5.5 0 0 1-.81-.469l1.514-8.526",
-    );
-
-    svg.appendChild(circle);
-    svg.appendChild(path);
-    return svg;
-  }
-  function createLatinCardIconSvg() {
-    const ns = "http://www.w3.org/2000/svg";
-    const svg = document.createElementNS(ns, "svg");
-    const attrs = {
-      viewBox: "0 0 24 24",
-      "stroke-width": "2",
-      width: "24",
-      height: "24",
-      fill: "none",
-      stroke: "currentColor",
-      "stroke-linejoin": "round",
-      "stroke-linecap": "round",
-      "aria-hidden": "true",
-      class: "lucide lucide-circle-star text-white mt-1 size-6 shrink-0",
-    };
-    for (const [k, v] of Object.entries(attrs)) svg.setAttribute(k, v);
-
-    const circle = document.createElementNS(ns, "circle");
-    circle.setAttribute("cx", "12");
-    circle.setAttribute("cy", "12");
-    circle.setAttribute("r", "10");
-
-    const path = document.createElementNS(ns, "path");
-    path.setAttribute(
-      "d",
-      "M11.051 7.616a1 1 0 0 1 1.909.024l.737 1.452a1 1 0 0 0 .737.535l1.634.256a1 1 0 0 1 .588 1.806l-1.172 1.168a1 1 0 0 0-.282.866l.259 1.613a1 1 0 0 1-1.541 1.134l-1.465-.75a1 1 0 0 0-.912 0l-1.465.75a1 1 0 0 1-1.539-1.133l.258-1.613a1 1 0 0 0-.282-.867l-1.156-1.152a1 1 0 0 1 .572-1.822l1.633-.256a1 1 0 0 0 .737-.535z",
-    );
-
-    svg.appendChild(circle);
-    svg.appendChild(path);
-    return svg;
-  }
-  async function createLogo(insert) {
-    const url = new URL("/bulsu-logo.svg", location.origin).href;
-    const res = await fetch(url);
-    const content = await res.text();
-
-    const img = new DOMParser().parseFromString(
-      content,
-      "image/svg+xml",
-    ).documentElement;
-    img.setAttribute("class", "size-30 absolute -right-8 -bottom-8 opacity-50");
-    // img.querySelector("rect").setAttribute("class", "size-30");
-
-    insert(img);
+  if (cardsBlock.dataset.glanceGwa === "loaded") {
+    console.log("Extension effect already present!");
+    return;
   }
 
-  try {
-    const ggaCard = cardsBlock.lastChild.cloneNode(true);
-    const latinCard = cardsBlock.lastChild.cloneNode(true);
+  cardsBlock.dataset.glanceGwa = "loaded";
 
-    ggaCard.className += " relative";
-    latinCard.className += " relative";
+  const user = {
+    latinAward: { award: null, error: null },
+    latinGwa: 0,
+    data: [],
+  };
 
-    const ggaContent = ggaCard.querySelector('div[data-slot="card-content"]');
-    const latinContent = latinCard.querySelector(
-      'div[data-slot="card-content"]',
-    );
+  const semesterBlocks = Array.from(
+    semestersBlock.querySelectorAll(semesterBlockSelector),
+  ).reverse();
 
-    createLogo((svg) =>
-      latinContent.insertBefore(svg, latinContent.firstChild),
-    );
-    createLogo((svg) => ggaContent.insertBefore(svg, ggaContent.firstChild));
+  let semesterCount = 1;
 
-    const ggaCardInfo = ggaCard.lastChild.querySelector(
-      "div > div > div > div",
-    );
-    const ggaCardIcon = ggaCard.querySelector("svg");
+  semesterBlocks.forEach((block) => {
+    console.log(`Looping over Semester ${semesterCount}`);
 
-    const latinCardInfo = latinCard.lastChild.querySelector(
-      "div > div > div > div",
-    );
-    const latinCardIcon = latinCard.querySelector("svg");
-
-    ggaCardIcon.parentNode.replaceChild(createGgaCardIconSvg(), ggaCardIcon);
-    latinCardIcon.parentNode.replaceChild(
-      createLatinCardIconSvg(),
-      latinCardIcon,
-    );
-
-    ggaCard.className += " bg-primary text-white";
-    latinCard.className += " bg-primary text-white";
-
-    ggaCardInfo.children[0].textContent = "Gold Gear Award";
-    ggaCardInfo.children[0].className += " text-white";
-    ggaCardInfo.children[2].className += " text-white";
-
-    const yearIndex = info.yearlyData.length - 1;
-    const yearData = info.yearlyData[yearIndex];
-
-    ggaCardInfo.children[1].textContent = gwa(allGrades([yearData]));
-    if (isGGA(yearData)) {
-      ggaCardInfo.children[0].textContent =
-        ggaCardInfo.children[0].textContent + " | Yearly GWA";
-      ggaCardInfo.children[2].textContent = yearData.award
-        ? `Running for ${yearData.award}`
-        : "Not eligible for an award";
-    } else {
-      ggaCardInfo.children[0].textContent =
-        ggaCardInfo.children[0].textContent + " | Semestral GWA";
-      ggaCardInfo.children[2].textContent = "No Gold Gear Awards yet";
+    if (isSemesterBlockLocked(block)) {
+      console.warn(`Semester ${semesterCount} is locked. Skipping...`);
+      return;
     }
 
-    latinCardInfo.children[0].textContent = "Latin Honors | Total GWA";
-    latinCardInfo.children[1].textContent = totalGradePoints(info.yearlyData);
+    const courseData = getCourseData(block);
 
-    latinCardInfo.children[0].className += " text-white";
-    latinCardInfo.children[2].className += " text-white";
+    if (!courseData.length) {
+      console.warn(
+        `Semester ${semesterCount} course data not found. Skipping...`,
+      );
+      return;
+    }
 
-    latinCardInfo.children[2].textContent = info.honor
-      ? `Running for ${info.honor}`
-      : "Not eligible for a Latin Honor";
+    const semesterData = createSemester(courseData, EXCLUDED_COURSES);
 
-    // Spacer columns
-    for (let i = 1; i <= 2; i++) {
-      cardsBlock.insertBefore(
-        document.createElement("div"),
-        cardsBlock.firstChild,
+    let yearData = null;
+
+    if (semesterCount % 2 === 0) {
+      // When semester is the final semester (year has passed), update the last year data to include this semester to the computation.
+
+      try {
+        const lastYearData = user.data[user.data.length - 1];
+
+        user.data[user.data.length - 1] = createYear(
+          user.data.length,
+          [lastYearData.data[0], semesterData],
+          EXCLUDED_COURSES,
+        );
+      } catch (e) {
+        console.error(e);
+        return;
+      }
+    } else {
+      yearData = createYear(user.data.length, [semesterData], EXCLUDED_COURSES);
+      user.data.push(yearData);
+
+      const filteredDataList = filterExcludedCourses(
+        user.data.flatMap((year) =>
+          year.data.flatMap((semester) => semester.data),
+        ),
+        EXCLUDED_COURSES,
+      );
+
+      user.latinAward = latinAward(user.data.length, filteredDataList);
+      user.latinGwa = computeLatinAverage(
+        filteredDataList,
+        filteredDataList.map((course) => course.units),
       );
     }
 
-    cardsBlock.insertBefore(ggaCard, cardsBlock.firstChild);
-    cardsBlock.insertBefore(latinCard, cardsBlock.firstChild);
+    semesterCount++;
+    showSemesterDataCard(block, semesterData);
+  });
+
+  const firstHeader = cardsBlock.firstChild.cloneNode(true);
+
+  removeSubjectCardStyle(cardsBlock.firstChild);
+  createHeaderSpace(cardsBlock, 2);
+
+  const latestYearData = user.data[user.data.length - 1];
+
+  createHeaderCard(
+    cardsBlock,
+    "Gold Gear Award | Yearly GWA",
+    gwaFormat(latestYearData.honorGwa),
+    latestYearData.ggaAward.error != null
+      ? "Not eligible for award"
+      : `Running for ${latestYearData.ggaAward.award}`,
+    "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiIGNsYXNzPSJsdWNpZGUgbHVjaWRlLWNvZyBwcmV2aWV3LWljb24iPjxwYXRoIGQ9Ik0xMSAxMC4yNyA3IDMuMzQiLz48cGF0aCBkPSJtMTEgMTMuNzMtNCA2LjkzIi8+PHBhdGggZD0iTTEyIDIydi0yIi8+PHBhdGggZD0iTTEyIDJ2MiIvPjxwYXRoIGQ9Ik0xNCAxMmg4Ii8+PHBhdGggZD0ibTE3IDIwLjY2LTEtMS43MyIvPjxwYXRoIGQ9Im0xNyAzLjM0LTEgMS43MyIvPjxwYXRoIGQ9Ik0yIDEyaDIiLz48cGF0aCBkPSJtMjAuNjYgMTctMS43My0xIi8+PHBhdGggZD0ibTIwLjY2IDctMS43MyAxIi8+PHBhdGggZD0ibTMuMzQgMTcgMS43My0xIi8+PHBhdGggZD0ibTMuMzQgNyAxLjczIDEiLz48Y2lyY2xlIGN4PSIxMiIgY3k9IjEyIiByPSIyIi8+PGNpcmNsZSBjeD0iMTIiIGN5PSIxMiIgcj0iOCIvPjwvc3ZnPg==",
+    firstHeader,
+  );
+  createHeaderCard(
+    cardsBlock,
+    "Latin Honor | Overall GWA",
+    gwaFormat(user.latinGwa),
+    user.latinAward.error != null
+      ? "Not eligible for award"
+      : `Running for ${user.latinAward.award}`,
+    "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiIGNsYXNzPSJsdWNpZGUgbHVjaWRlLW1lZGFsIHByZXZpZXctaWNvbiI+PHBhdGggZD0iTTcuMjEgMTUgMi42NiA3LjE0YTIgMiAwIDAgMSAuMTMtMi4yTDQuNCAyLjhBMiAyIDAgMCAxIDYgMmgxMmEyIDIgMCAwIDEgMS42LjhsMS42IDIuMTRhMiAyIDAgMCAxIC4xNCAyLjJMMTYuNzkgMTUiLz48cGF0aCBkPSJNMTEgMTIgNS4xMiAyLjIiLz48cGF0aCBkPSJtMTMgMTIgNS44OC05LjgiLz48cGF0aCBkPSJNOCA3aDgiLz48Y2lyY2xlIGN4PSIxMiIgY3k9IjE3IiByPSI1Ii8+PHBhdGggZD0iTTEyIDE4di0yaC0uNSIvPjwvc3ZnPg==",
+    firstHeader,
+  );
+  try {
+    console.log(user.latinAward, user.data[user.data.length - 1].ggaAward);
+    createAwardGuideCard(
+      gradesBlock,
+      alertCard.cloneNode(true),
+      user.latinAward,
+      user.data[user.data.length - 1].ggaAward,
+    );
   } catch (e) {
     console.error(e);
   }
 }
 
-function fixFirstCard(cardsBlock) {
-  const card = cardsBlock.firstChild;
+const ggaAward = (gwa, yearCount, dataList) => {
+  const result = {
+    award: null,
+    error: null,
+  };
 
-  card.className = card.className
-    .replace("bg-primary", "")
-    .replace("text-white", "");
-  const lastChild = card.querySelector("div > div > p:last-child");
-  lastChild.textContent = "Subjects taken so far";
-  const img = card.querySelector("img");
-  img.parentNode.removeChild(img);
-}
-
-function displaySemestralGWA(semesterBlock, semester) {
-  const { rawGwa, filteredGwa } = semester;
-  const summaryCard = semesterBlock.querySelector(
-    'div[data-slot="card-content"]',
-  );
-  const metricsPanel = summaryCard.querySelector(
-    "div:last-child > div:last-child > div:last-child",
-  );
-
-  let idx = 0;
-  [rawGwa, filteredGwa].forEach((metric) => {
-    const metricCard =
-      metricsPanel.children[metricsPanel.children.length - 1].cloneNode(true);
-    metricCard.className += ` ${metricCard.className.replace("border/70", "primary")}`;
-
-    metricCard.querySelector("div").querySelector("p:first-child").textContent =
-      `${idx < 1 ? "Raw" : "Honor"} GWA`;
-    metricCard.querySelector("div").querySelector("p:last-child").textContent =
-      metric;
-    metricCard.querySelector("div").querySelector("p:last-child").className +=
-      " text-primary";
-
-    metricsPanel.appendChild(metricCard);
-    idx++;
-  });
-}
-
-function getSemesterBlockData(semesterBlock) {
-  const table = semesterBlock.querySelector("table");
-  const headers = Array.from(table.querySelectorAll("thead th"));
-  const subjectColIdx =
-    headers.findIndex((h) => h.textContent.trim() === "Subject") + 1;
-  const gradeColIdx =
-    headers.findIndex((h) => h.textContent.trim() === "Grade") + 1;
-  const unitColIdx = gradeColIdx - 1;
-
-  if (gradeColIdx === -1 || subjectColIdx === -1 || unitColIdx === 1) {
-    console.log("Unable to find necessary columns. Returning blank data...");
-    return {};
+  if (!dataList.every((course) => course.grade <= GGA_GRADE_MINIMUM)) {
+    result.error = "grade";
+  }
+  if (yearCount < 2) {
+    result.error += " year";
+  }
+  if (gwa > DEAN_LISTER_GWA_MINIMUM) {
+    result.error += " gwa";
+  } else if (result.error == null && gwa > PRESIDENT_LISTER_GWA_MINIMUM) {
+    result.award = "Dean's Lister";
+  } else if (result.error == null && gwa <= PRESIDENT_LISTER_GWA_MINIMUM) {
+    result.award = "President's Lister";
   }
 
-  return Array.from(table.querySelectorAll("tbody tr"))
-    .map((row) => {
-      return {
-        sub: row
-          .querySelector(`td:nth-child(${subjectColIdx}) > div > p:first-child`)
-          .textContent.trim()
-          .split(" ")[0],
-        units: +row
-          .querySelector(`td:nth-child(${unitColIdx})`)
-          .textContent.trim(),
-        grade: parseFloat(
-          row
-            .querySelector(`td:nth-child(${gradeColIdx})`)
-            .textContent.trim()
-            .split(" ")[0], // Grade cell may contain remarks like INC and such
-        ),
-      };
-    })
-    .filter((data) => !Number.isNaN(data.grade));
+  return result;
+};
+
+const latinAward = (yearCount, dataList) => {
+  const result = {
+    award: null,
+    error: null,
+  };
+
+  const gwa = computeLatinAverage(
+    dataList,
+    dataList.map((course) => course.units),
+  );
+
+  if (!dataList.every((course) => course.grade <= LATIN_HONOR_GRADE_MINIMUM)) {
+    result.error = "grade";
+  }
+  if (yearCount < 2) {
+    result.error += " year";
+  } else if (gwa > CUM_LAUDE_GWA_MINIMUM) {
+    result.error += " gwa";
+  } else if (result.error == null && gwa > MAGNA_CUM_LAUDE_GWA_MINIMUM) {
+    result.award = "Cum Laude";
+  } else if (result.error == null && gwa > SUMMA_CUM_LAUDE_GWA_MINIMUM) {
+    result.award = "Magna Cum Laude";
+  } else if (result.error == null && gwa <= SUMMA_CUM_LAUDE_GWA_MINIMUM) {
+    result.award = "Summa Cum Laude";
+  }
+
+  return result;
+};
+
+const gwaFormat = (number) => {
+  const numSplit = String(number).split(".");
+  return parseFloat(
+    parseFloat(`${numSplit[0]}.${numSplit[1].substring(0, 3)}`).toFixed(2),
+  );
+};
+
+const computeAverage = (dataList) =>
+  Math.sumPrecise(dataList.map((course) => course.grade)) / dataList.length;
+
+const computeLatinAverage = (dataList, unitsList) =>
+  computeGradePoints(dataList) / Math.sumPrecise(unitsList);
+
+const computeGradePoints = (dataList) =>
+  Math.sumPrecise(dataList.map((course) => course.units * course.grade));
+
+const filterExcludedCourses = (dataList, excludedCourses = []) => {
+  return dataList.filter((course) => !excludedCourses.includes(course.subject));
+  // Only exclude the grade from computation but include the unit:
+  // dataList.map((course) => {subject: course.subject, units: course.units, grade: 0.0})
+};
+
+function createSemester(dataList, excludedCourses = []) {
+  let filteredDataList = [];
+  if (excludedCourses.length) {
+    filteredDataList = filterExcludedCourses(dataList, excludedCourses);
+  }
+
+  const rawGwa = computeAverage(dataList);
+  const rawGp = computeGradePoints(dataList);
+
+  return {
+    data: dataList,
+    rawGwa,
+    awardGwa: filteredDataList.length
+      ? computeAverage(filteredDataList)
+      : rawGwa,
+    rawGp,
+    awardGp: filteredDataList.length
+      ? computeGradePoints(filteredDataList)
+      : rawGp,
+  };
 }
 
-function waitForElement(selector, timeout = 10000) {
+function createYear(yearCount, dataList, excludedCourses = []) {
+  const flatCourseData = dataList.flatMap((year) => year.data);
+  const honorGwa = computeAverage(
+    filterExcludedCourses(flatCourseData, excludedCourses),
+  );
+
+  return {
+    data: dataList,
+    rawGwa: computeAverage(flatCourseData),
+    honorGwa,
+    ggaAward: ggaAward(honorGwa, yearCount, flatCourseData),
+  };
+}
+
+async function waitForElement(selector, timeout = 10000) {
   return new Promise((resolve, reject) => {
     const existing = document.querySelector(selector);
     if (existing) return resolve(existing);
@@ -319,111 +278,296 @@ function waitForElement(selector, timeout = 10000) {
   });
 }
 
-function glance(info, cardsBlock, semestersBlock, semesterBlockSelector) {
-  const isSemesterBlockLocked = (semesterBlock) =>
-    semesterBlock.querySelector('div[aria-hidden="true"]') != null;
+function getCourseData(block) {
+  const table = block.querySelector("table");
 
-  let semesterCount = 0;
+  const headers = Array.from(table.querySelectorAll("thead th"));
 
-  const blocks = Array.from(
-    semestersBlock.querySelectorAll(semesterBlockSelector),
-  ).toReversed();
+  const subjectColIdx =
+    headers.findIndex((h) => h.textContent.trim() === "Subject") + 1;
+  const gradeColIdx =
+    headers.findIndex((h) => h.textContent.trim() === "Grade") + 1;
+  const unitColIdx = gradeColIdx - 1;
 
-  blocks.forEach((semesterBlock) => {
-    console.log(`Scraping semester ${semesterCount + 1}`);
+  if (gradeColIdx === -1 || subjectColIdx === -1) {
+    console.log("Unable to find necessary columns. Returning blank data...");
+    return [{}];
+  }
 
-    if (isSemesterBlockLocked(semesterBlock)) {
-      console.log("Semester grades are locked. Skipping...");
-      return;
-    }
-
-    const dataSet = getSemesterBlockData(semesterBlock);
-
-    if (!dataSet.length) {
-      console.log("No data for semester were retrieved. Skipping...");
-      return;
-    }
-
-    if (semesterCount % 2 == 0) {
-      try {
-        if (!isLatinHonorEligible(info.yearlyData)) {
-          info.honor = null;
-        } else {
-          let runningGwa = parseFloat(totalGradePoints(info.yearlyData));
-          info.honor =
-            (runningGwa <= LATIN_HONOR_SUMMA_CUM_LAUDE_GWA_MINIMUM
-              ? "Summa "
-              : runningGwa <= LATIN_HONOR_MAGNA_CUM_LAUDE_GWA_MINIMUM
-                ? "Magna "
-                : "") + "Cum Laude";
-        }
-      } catch (e) {
-        console.trace(e);
-      }
-
-      info.yearlyData.push({ award: null, semesters: [] });
-    }
-
-    const yearIndex = info.yearlyData.length - 1;
-    const yearData = info.yearlyData[yearIndex];
-
-    const semester = {
-      data: dataSet,
-      rawGwa: gwa(dataSet.map((data) => data.grade)),
-      filteredGwa: gwa(
-        dataSet.map((data) =>
-          !EXCLUDED_COURSES.includes(data.sub) ? data.grade : 0,
+  return Array.from(table.querySelectorAll("tbody tr"))
+    .map((row) => {
+      return {
+        subject: row
+          .querySelector(`td:nth-child(${subjectColIdx}) > div > p:first-child`)
+          .textContent.trim()
+          .split(" ")[0],
+        units: +row
+          .querySelector(`td:nth-child(${unitColIdx})`)
+          .textContent.trim(),
+        grade: parseFloat(
+          row
+            .querySelector(`td:nth-child(${gradeColIdx})`)
+            .textContent.trim()
+            .split(" ")[0], // Grade cell may contain remarks like INC and such
         ),
-      ),
-    };
+      };
+    })
+    .filter((data) => {
+      const res = !Number.isNaN(data.grade);
 
-    yearData.semesters.push(semester);
+      if (!res) {
+        console.warn(
+          `Found an invalid grade data! Course Name: ${data.subject} Units: ${data.units} Grade: ${data.grade}`,
+        );
+      }
+      return res;
+    });
+}
 
-    try {
-      yearData.award = isGGAEligible(info)
-        ? isPresidentLister(
-            +gwa(allGrades([info.yearlyData[yearIndex - 1], yearData])),
-          )
-          ? "President's Lister"
-          : "Dean's Lister"
-        : null;
-    } catch (e) {
-      console.trace(e);
-    }
-
-    semesterCount++;
-    displaySemestralGWA(semesterBlock, semester);
-  });
-
-  fixFirstCard(cardsBlock);
-
+function showSemesterDataCard(block, semesterData) {
   try {
-    displayCards(cardsBlock, info);
+    let { rawGwa, rawGp, awardGwa, awardGp } = semesterData;
+
+    rawGwa = gwaFormat(rawGwa);
+    rawGp = gwaFormat(rawGp);
+    awardGwa = gwaFormat(awardGwa);
+    awardGp = gwaFormat(awardGp);
+
+    const summaryCard = block.querySelector(
+      'div[data-slot="card"]:first-child',
+    );
+
+    const metricsCard = summaryCard.cloneNode(true);
+
+    const metricsContent = metricsCard.querySelector(
+      'div[data-slot="card-content"]',
+    );
+    const metricsHeader = metricsContent.querySelector("div:first-child");
+    const metricsBody = metricsContent.querySelector("div:last-child");
+
+    metricsHeader.className += " bg-primary";
+
+    metricsHeader.removeChild(metricsHeader.querySelector("span"));
+    const metricsHeaderBody = metricsHeader.querySelector("div");
+    metricsHeaderBody.removeChild(metricsHeaderBody.querySelector("p"));
+
+    const metricsHeaderLabel = metricsHeaderBody.querySelector("h3");
+    metricsHeaderLabel.textContent = "GWA & Grade Points Summary";
+
+    metricsBody.removeChild(metricsBody.firstChild.nextSibling);
+    metricsBody.removeChild(metricsBody.firstChild);
+
+    const newSummaryCard = document.createElement("div");
+    newSummaryCard.className = "flex flex-col gap-4";
+
+    newSummaryCard.appendChild(summaryCard);
+    newSummaryCard.appendChild(metricsCard);
+
+    let idx = 0;
+    [rawGwa, awardGwa, rawGp, awardGp].forEach((metric) => {
+      const metricCard = metricsBody.firstChild.children[idx];
+
+      metricCard
+        .querySelector("div")
+        .querySelector("p:first-child").textContent =
+        `${(idx % 2 == 0 ? "Raw " : "Award ") + (idx < 2 ? "GWA" : "GP")}`;
+      metricCard
+        .querySelector("div")
+        .querySelector("p:last-child").textContent = metric;
+      idx++;
+    });
+
+    block.firstChild.insertBefore(newSummaryCard, block.firstChild.firstChild);
   } catch (e) {
     console.error(e);
+    return;
   }
 }
 
-browser.runtime.onMessage.addListener(async (data) => {
-  const { cardsBlockSelector, semesterBlockSelector, semestersBlockSelector } =
-    data;
+function createHeaderCard(
+  block,
+  title,
+  body,
+  footer,
+  iconUrl = "",
+  clone = null,
+) {
+  const card = (clone ? clone : block.firstChild).cloneNode(true);
 
-  const semestersBlock = await waitForElement(semestersBlockSelector);
-  const cardsBlock = await waitForElement(cardsBlockSelector);
+  const cardContent = card.querySelector('div[data-slot="card-content"]');
+  const cardContentInfo = card.lastChild.querySelector("div > div > div > div");
+  const cardContentIcon = cardContent.querySelector("svg");
 
-  if (cardsBlock.dataset.glanceGwa === "loaded") {
-    console.log("Extension effect already present!");
-    return;
+  cardContentInfo.children[0].textContent = title;
+  cardContentInfo.children[1].textContent = body;
+  cardContentInfo.children[2].textContent = footer;
+
+  createIcon(
+    new URL(iconUrl),
+    "lucide lucide-award text-white mt-1 size-6 shrink-0",
+    (icon) => {
+      cardContentIcon.parentNode.replaceChild(icon, cardContentIcon);
+    },
+  );
+
+  block.insertBefore(card, block.firstChild);
+}
+
+function createHeaderSpace(block, space = 1) {
+  for (let i = 0; i < space; i++) {
+    block.insertBefore(document.createElement("div"), block.firstChild);
   }
+}
 
-  cardsBlock.dataset.glanceGwa = "loaded";
+function createAwardGuideCard(block, alertCard, latinAward, ggaAward) {
+  const ineligibleAwardAlertCard = (alertCard, title, error) => {
+    const awardCard = alertCard.cloneNode(true);
+    const awardCardIcon = awardCard.querySelector("span");
+    const awardCardBody = awardCard.querySelector("div");
+    const awardCardTitle = awardCardBody.querySelector(
+      'div[data-slot="alert-title"]',
+    );
+    const awardCardContent = awardCardBody.querySelector(
+      'div[data-slot="alert-description"]',
+    );
 
-  console.log("All checks passed!");
+    awardCard.className = awardCard.className.replaceAll("amber", "red");
 
-  glance(info, cardsBlock, semestersBlock, semesterBlockSelector);
-});
+    createIcon(
+      new URL(
+        "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiIGNsYXNzPSJsdWNpZGUgbHVjaWRlLWJhbiBwcmV2aWV3LWljb24iPjxjaXJjbGUgY3g9IjEyIiBjeT0iMTIiIHI9IjEwIi8+PHBhdGggZD0iTTQuOTI5IDQuOTI5IDE5LjA3IDE5LjA3MSIvPjwvc3ZnPg==",
+      ),
+      "lucide lucide-ban",
+      (icon) => {
+        awardCardIcon.replaceChild(icon, awardCardIcon.firstChild);
+      },
+    );
 
-const info = {
-  honor: null,
-  yearlyData: [],
-};
+    awardCardTitle.textContent = title;
+    awardCardContent.textContent =
+      error
+        .split(" ")
+        .slice(1)
+        .map((e) =>
+          e === "grade"
+            ? "You have course grade(s) lower than the minimum grade"
+            : e === "year"
+              ? "You haven't been a student for long enough"
+              : e === "gwa"
+                ? "Your GWA does not meet the minimum GWA"
+                : "You have unmet requirements",
+        )
+        .join(". ") + ".";
+
+    return awardCard;
+  };
+
+  block.className = "grid gap-4 lg:grid-cols-2";
+
+  block.firstChild.className = block.firstChild.className.replace(
+    "max-w-xl",
+    "",
+  );
+
+  const card = block.firstChild.cloneNode(true);
+  const cardHeader = card.firstChild;
+  const cardContent = card.lastChild;
+  cardContent.className +=
+    " flex flex-col gap-(--card-spacing) py-(--card-spacing)";
+
+  card.firstChild.className = card.firstChild.className.replace("max-w-xl", "");
+
+  cardHeader.firstChild.textContent = "Gold Gear Awards and Latin Honor Guide";
+  cardHeader.lastChild.textContent =
+    "Grade computation conditions for award qualifications.";
+
+  alertCard.className = alertCard.className
+    .replace("text-foreground", "text-amber-950")
+    .replace("text-muted-foreground", "text-amber-900")
+    .replace("border-border", "border-amber-300")
+    .replace("bg-muted/40", "bg-amber-50");
+
+  const alertCardIcon = alertCard.querySelector("span");
+  const alertCardBody = alertCard.querySelector("div");
+  const alertCardTitle = alertCardBody.querySelector(
+    'div[data-slot="alert-title"]',
+  );
+  const alertCardContent = alertCardBody.querySelector(
+    'div[data-slot="alert-description"]',
+  );
+
+  createIcon(
+    new URL(
+      "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiIGNsYXNzPSJsdWNpZGUgbHVjaWRlLWNpcmNsZS1leGNsYW1hdGlvbi1wb2ludCBwcmV2aWV3LWljb24iPjxjaXJjbGUgY3g9IjEyIiBjeT0iMTIiIHI9IjEwIi8+PGxpbmUgeDE9IjEyIiB4Mj0iMTIiIHkxPSI4IiB5Mj0iMTIiLz48bGluZSB4MT0iMTIiIHgyPSIxMi4wMSIgeTE9IjE2IiB5Mj0iMTYiLz48L3N2Zz4=",
+    ),
+    "lucide lucide-circle-exclamation-point",
+    (icon) => {
+      alertCardIcon.replaceChild(icon, alertCardIcon.firstChild);
+    },
+  );
+
+  alertCardTitle.textContent = "Guide Computations";
+  alertCardContent.textContent =
+    "Information below may only serve as guide and should not be taken as factual over the actual calculations performed by the Registrar.";
+
+  const computationSection = document.createElement("p");
+  computationSection.textContent =
+    "To compute your Grade Points, get the product a course's Units and Grade. To compute the final GWA (per semester, yearly, or overall), sum up every Grade Points divided by the total number of Units. Use your GWA with up to 3 decimal places and round off at the 3rd decimal place.";
+
+  const latinHonorSection = document.createElement("p");
+  latinHonorSection.textContent =
+    "Latin Honors are awarded based on your cumulative GWA. To qualify for the award, you must be a student for at least 2 years in the University. You also must be enrolled in at least 15 units prescribed in the curriculum. This may be excused if the required unit of the curriculum is less than 15 units or the courses need to meet 15 units are not offered. Cum Laude requires a GWA within 1.46 - 1.75 with no grade lower than 2.50. Magna Cum Laude requires a GWA within 1.21 - 1.45 with no grade lower than 2.25. Summa Cum Laude requires a GWA within 1.00 - 1.20 with no grade lower than 2.0.";
+
+  const listerSection = document.createElement("p");
+  listerSection.textContent =
+    "Gold Gear Awards are a yearly recognition, making you either a President's Lister or a Dean's Lister when requirements are met. You are awarded based on your two preceding semester's GWAs. To qualify for the award, you must be a 2nd year student. To qualify for the Gold Gear Awards, your GWA must be within 1.00 - 1.75 with no grade lower than 2.0. Dean's Lister requires a GWA within 1.22 - 1.75. President's Lister requires a GWA within 1.00 - 1.21.";
+
+  cardContent.insertBefore(alertCard, cardContent.firstChild);
+  cardContent.removeChild(cardContent.lastChild);
+
+  cardContent.appendChild(computationSection);
+  cardContent.appendChild(latinHonorSection);
+  cardContent.appendChild(listerSection);
+
+  block.insertBefore(card, block.firstChild);
+
+  let idx = 0;
+  [ggaAward.error, latinAward.error].forEach((e) => {
+    if (e == null) return;
+
+    cardContent.insertBefore(
+      ineligibleAwardAlertCard(
+        alertCard,
+        `You are not eligible for ${
+          idx < 1 ? "Gold Gear Awards..." : "a Latin Honor..."
+        }`,
+        e,
+      ),
+      cardContent.firstChild,
+    );
+    idx++;
+  });
+}
+
+function removeSubjectCardStyle(card) {
+  card.className = card.className
+    .replace("bg-primary", "")
+    .replace("text-white", "");
+  const lastChild = card.querySelector("div > div > p:last-child");
+  lastChild.textContent = "Total subjects taken";
+  const img = card.querySelector("img");
+  img.parentNode.removeChild(img);
+}
+
+async function createIcon(urlResource, className, insertFunc) {
+  const res = await fetch(urlResource.href);
+  const content = await res.text();
+
+  const icon = new DOMParser().parseFromString(
+    content,
+    "image/svg+xml",
+  ).documentElement;
+  icon.setAttribute("class", className);
+
+  insertFunc(icon);
+}

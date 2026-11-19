@@ -12,6 +12,8 @@ I saw a post from a fellow BulSUan who created a whole-ass website just to compu
 
 ![](screenshot-2.png)
 
+![](screenshot-3.png)
+
 ## Installation
 
 > [!IMPORTANT]
