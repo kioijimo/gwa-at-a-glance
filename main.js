@@ -512,7 +512,7 @@ function createAwardGuideCard(block, alertCard, latinAward, ggaAward) {
 
   const computationSection = document.createElement("p");
   computationSection.textContent =
-    "To compute your Grade Points, get the product a course's Units and Grade. To compute the final GWA (per semester, yearly, or overall), sum up every Grade Points divided by the total number of Units. Use your GWA with up to 3 decimal places and round off at the 3rd decimal place.";
+    "To compute your Grade Points, get the product of a course's Units and Grade. To compute the final GWA (per semester, yearly, or overall), sum up every Grade Points divided by the total number of Units. Use your GWA with up to 3 decimal places and round off at the 3rd decimal place.";
 
   const latinHonorSection = document.createElement("p");
   latinHonorSection.textContent =
